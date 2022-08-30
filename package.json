@@ -1,0 +1,14 @@
+{
+  "name": "@sgtpooki/npm-dependency-update-order",
+  "version": "0.0.1",
+  "description": "Figure out the best order to update your dependencies",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "aegir": "^37.5.3"
+  }
+}
