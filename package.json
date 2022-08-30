@@ -2,12 +2,31 @@
   "name": "@sgtpooki/npm-dependency-update-order",
   "version": "0.0.1",
   "description": "Figure out the best order to update your dependencies",
-  "main": "dist/index.js",
+  "author": "Russell Dempsey <1173416+SgtPooki@users.noreply.github.com> (https://github.com/SgtPooki)",
+  "license": "Apache-2.0 OR MIT",
+  "homepage": "https://github.com/SgtPooki/npm-dependency-update-order#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SgtPooki/npm-dependency-update-order.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SgtPooki/npm-dependency-update-order/issues"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=7.0.0"
+  },
+  "main": "src/index.js",
+  "files": [
+    "src",
+    "dist"
+  ],
+  "eslintConfig": {
+    "extends": "ipfs"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "aegir": "^37.5.3"
   }
