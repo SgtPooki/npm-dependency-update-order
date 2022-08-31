@@ -6,5 +6,11 @@
   ],
   "compilerOptions": {
     "resolveJsonModule": true,
-  }
+    "downlevelIteration": true,
+    "target": "ES6",
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+  },
+
 }

@@ -8,6 +8,8 @@ type DependencyMap = Map<string, Set<string>>
 const baseToPackageIdentifierMap: Map<string, string> = new Map()
 const processedBases: Set<string> = new Set()
 
+const VERBOSE = false
+
 const getPackageIdentifier = (pkg: Package, base: string, modulePath: string[]) => {
   const name = pkg.name
 
@@ -26,9 +28,6 @@ const getPackageIdentifier = (pkg: Package, base: string, modulePath: string[]) 
 
   return packageIdentifier
 }
-
-const rootPkgIdentifier = getPackageIdentifier({ name: process.env.npm_package_name as string, version: process.env.npm_package_version as string }, process.cwd(), [])
-// https://www.npmjs.com/package/batching-toposort
 
 const getDependentId = (pkg: Package, base: string, modulePath: string[]) => {
   let dependentId
@@ -72,7 +71,9 @@ const walkFn = (dependencyMap: DependencyMap) => async (pkg: Package, base: stri
 }
 
 async function collectPackageNames (workingDirectory = process.cwd(), dependencyMap: DependencyMap = new Map()) {
-  console.log(`Processing working directory '${workingDirectory}'...`)
+  if (VERBOSE) {
+    console.log(`Processing working directory '${workingDirectory}'...`)
+  }
 
   await packageWalker(
     walkFn(dependencyMap),
@@ -117,20 +118,25 @@ const converMapToDAG = (map: DependencyMap) => {
 //     queue = batch
 //   }
 // }
-
+let rootPkgIdentifier = 'root'
 export default async () => {
-  const pkgJson = await import(path.resolve(process.cwd(), 'package.json'))
+  const pkgJsonRaw = await fs.promises.readFile(path.resolve(process.cwd(), 'package.json'), 'utf8')
+  const pkgJson = JSON.parse(pkgJsonRaw)
+
+  rootPkgIdentifier = getPackageIdentifier(pkgJson, process.cwd(), [])
+
   let dependencyMap = await collectPackageNames()
   processedBases.add(process.cwd())
   // now loop over all baseToPackageIdentifierMap entries and add them to the DAG
-  // const DAG = {}
   // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
   for (const [base, _packageIdentifier] of baseToPackageIdentifierMap.entries()) {
     if (!processedBases.has(base)) {
       dependencyMap = await collectPackageNames(base, dependencyMap)
       processedBases.add(base)
     } else {
-      console.log(`Skipping already processed directory '${base}'`)
+      if (VERBOSE) {
+        console.log(`Skipping already processed directory '${base}'`)
+      }
     }
   }
 
@@ -148,6 +154,7 @@ export default async () => {
     console.error(err)
   }
   const dependencyUpdateOrder2: string[][] = []
+  const npmInstallCommands: string[] = []
   dependencyUpdateOrder.forEach((pkgList) => {
     const newPkgList: string[] = []
     const devDeps: string[] = []
@@ -166,12 +173,18 @@ export default async () => {
       }
     })
     if (deps.length > 0) {
-      console.log(`npm install -S ${deps.map((pkg) => pkg.split('@')[0] + '@latest').join(' ')}`)
+      npmInstallCommands.push(`npm install -S ${deps.map((pkg) => pkg.split('@')[0] + '@latest').join(' ')}`)
     }
     if (devDeps.length > 0) {
-      console.log(`npm install -D ${devDeps.map((pkg) => pkg.split('@')[0] + '@latest').join(' ')}`)
+      npmInstallCommands.push(`npm install -D ${devDeps.map((pkg) => pkg.split('@')[0] + '@latest').join(' ')}`)
     }
     dependencyUpdateOrder2.push(newPkgList)
   })
-  console.log('dependencyUpdateOrder2: ', dependencyUpdateOrder2)
+
+  if (VERBOSE) {
+    console.log('Dependency update order should be: ', dependencyUpdateOrder2)
+  }
+  npmInstallCommands.forEach((cmd) => {
+    console.log(cmd)
+  })
 }
