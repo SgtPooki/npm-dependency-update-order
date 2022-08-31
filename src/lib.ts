@@ -178,7 +178,9 @@ export default async (workingDirectory = process.cwd()) => {
     if (deps.length > 0) {
       npmInstallCommands.push(`npm install -S ${deps.map((pkg) => pkg.split('@')[0] + '@latest').join(' ')}`)
     }
-    dependencyUpdateOrder2.push(newPkgList)
+    if (newPkgList.length > 0) {
+      dependencyUpdateOrder2.push(newPkgList)
+    }
   })
 
   if (VERBOSE >= 1) {
