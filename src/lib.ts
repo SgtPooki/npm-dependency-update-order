@@ -8,7 +8,7 @@ type DependencyMap = Map<string, Set<string>>
 const baseToPackageIdentifierMap: Map<string, string> = new Map()
 const processedBases: Set<string> = new Set()
 
-const VERBOSE = false
+const VERBOSE = Boolean(process.env.VERBOSE)
 
 const getPackageIdentifier = (pkg: Package, base: string, modulePath: string[]) => {
   const name = pkg.name
@@ -159,7 +159,7 @@ export default async (workingDirectory = process.cwd()) => {
     const newPkgList: string[] = []
     const devDeps: string[] = []
     const deps: string[] = []
-    pkgList.forEach((pkg) => {
+    pkgList.sort().forEach((pkg) => {
       let isDirectDependency = false
       if (pkgJson.dependencies[pkg.split('@')[0]] != null) {
         deps.push(pkg)
@@ -172,11 +172,11 @@ export default async (workingDirectory = process.cwd()) => {
         newPkgList.push(pkg)
       }
     })
-    if (deps.length > 0) {
-      npmInstallCommands.push(`npm install -S ${deps.map((pkg) => pkg.split('@')[0] + '@latest').join(' ')}`)
-    }
     if (devDeps.length > 0) {
       npmInstallCommands.push(`npm install -D ${devDeps.map((pkg) => pkg.split('@')[0] + '@latest').join(' ')}`)
+    }
+    if (deps.length > 0) {
+      npmInstallCommands.push(`npm install -S ${deps.map((pkg) => pkg.split('@')[0] + '@latest').join(' ')}`)
     }
     dependencyUpdateOrder2.push(newPkgList)
   })
