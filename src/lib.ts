@@ -118,6 +118,16 @@ const converMapToDAG = (map: DependencyMap) => {
 //     queue = batch
 //   }
 // }
+
+const getPackageNameFromIdentifier = (pkgIdentifier: string) => {
+  const pkgParts = pkgIdentifier.split('@')
+  let pkgName = pkgParts[0]
+  if (pkgParts.length > 2) {
+    pkgName = `@${pkgParts[1]}`
+  }
+  return pkgName
+}
+
 let rootPkgIdentifier = 'root'
 export default async (workingDirectory = process.cwd()) => {
   const pkgJsonRaw = await fs.promises.readFile(path.resolve(workingDirectory, 'package.json'), 'utf8')
@@ -161,10 +171,11 @@ export default async (workingDirectory = process.cwd()) => {
     const deps: string[] = []
     pkgList.sort().forEach((pkg) => {
       let isDirectDependency = false
-      if (pkgJson.dependencies[pkg.split('@')[0]] != null) {
+      const pkgName = getPackageNameFromIdentifier(pkg)
+      if (pkgJson.dependencies[pkgName] != null) {
         deps.push(pkg)
         isDirectDependency = true
-      } else if (pkgJson.devDependencies[pkg.split('@')[0]] != null) {
+      } else if (pkgJson.devDependencies[pkgName] != null) {
         devDeps.push(pkg)
         isDirectDependency = true
       }
@@ -173,10 +184,10 @@ export default async (workingDirectory = process.cwd()) => {
       }
     })
     if (devDeps.length > 0) {
-      npmInstallCommands.push(`npm install -D ${devDeps.map((pkg) => pkg.split('@')[0] + '@latest').join(' ')}`)
+      npmInstallCommands.push(`npm install -D ${devDeps.map((pkg) => getPackageNameFromIdentifier(pkg) + '@latest').join(' ')}`)
     }
     if (deps.length > 0) {
-      npmInstallCommands.push(`npm install -S ${deps.map((pkg) => pkg.split('@')[0] + '@latest').join(' ')}`)
+      npmInstallCommands.push(`npm install -S ${deps.map((pkg) => getPackageNameFromIdentifier(pkg) + '@latest').join(' ')}`)
     }
     if (newPkgList.length > 0) {
       dependencyUpdateOrder2.push(newPkgList)
