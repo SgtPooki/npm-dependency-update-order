@@ -1,14 +1,17 @@
 /* eslint-disable no-console */
-import { Package, packageWalker } from 'npm-package-walker'
-import batchingToposort from 'batching-toposort'
 import fs from 'fs'
 import path from 'path'
+
+import { Package, packageWalker } from 'npm-package-walker'
+import batchingToposort from 'batching-toposort'
+
+import argv from './cli.js'
 
 type DependencyMap = Map<string, Set<string>>
 const baseToPackageIdentifierMap: Map<string, string> = new Map()
 const processedBases: Set<string> = new Set()
 
-const VERBOSE = Number(process.env.VERBOSE ?? 0)
+const VERBOSE = argv.verbose ?? 0
 
 const getPackageIdentifier = (pkg: Package, base: string, modulePath: string[]) => {
   const name = pkg.name
@@ -21,7 +24,10 @@ const getPackageIdentifier = (pkg: Package, base: string, modulePath: string[]) 
     // }
     throw new Error('No name found for package: ' + JSON.stringify(pkg))
   }
-  const packageIdentifier = `${name}@${pkg.version ?? '??'}`
+  let packageIdentifier = `${name}@${pkg.version ?? '??'}`
+  if (argv.nameOnly === true) {
+    packageIdentifier = name
+  }
   if (!baseToPackageIdentifierMap.has(name)) {
     baseToPackageIdentifierMap.set(base, packageIdentifier)
   }
