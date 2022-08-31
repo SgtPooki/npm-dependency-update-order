@@ -8,7 +8,7 @@ type DependencyMap = Map<string, Set<string>>
 const baseToPackageIdentifierMap: Map<string, string> = new Map()
 const processedBases: Set<string> = new Set()
 
-const VERBOSE = Boolean(process.env.VERBOSE)
+const VERBOSE = Number(process.env.VERBOSE ?? 0)
 
 const getPackageIdentifier = (pkg: Package, base: string, modulePath: string[]) => {
   const name = pkg.name
@@ -71,7 +71,7 @@ const walkFn = (dependencyMap: DependencyMap) => async (pkg: Package, base: stri
 }
 
 async function collectPackageNames (workingDirectory = process.cwd(), dependencyMap: DependencyMap = new Map()) {
-  if (VERBOSE) {
+  if (VERBOSE >= 2) {
     console.log(`Processing working directory '${workingDirectory}'...`)
   }
 
@@ -134,7 +134,7 @@ export default async (workingDirectory = process.cwd()) => {
       dependencyMap = await collectPackageNames(base, dependencyMap)
       processedBases.add(base)
     } else {
-      if (VERBOSE) {
+      if (VERBOSE >= 2) {
         console.log(`Skipping already processed directory '${base}'`)
       }
     }
@@ -181,7 +181,7 @@ export default async (workingDirectory = process.cwd()) => {
     dependencyUpdateOrder2.push(newPkgList)
   })
 
-  if (VERBOSE) {
+  if (VERBOSE >= 1) {
     console.log('Dependency update order should be: ', dependencyUpdateOrder2)
   }
   npmInstallCommands.forEach((cmd) => {
