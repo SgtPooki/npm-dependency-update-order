@@ -119,14 +119,14 @@ const converMapToDAG = (map: DependencyMap) => {
 //   }
 // }
 let rootPkgIdentifier = 'root'
-export default async () => {
-  const pkgJsonRaw = await fs.promises.readFile(path.resolve(process.cwd(), 'package.json'), 'utf8')
+export default async (workingDirectory = process.cwd()) => {
+  const pkgJsonRaw = await fs.promises.readFile(path.resolve(workingDirectory, 'package.json'), 'utf8')
   const pkgJson = JSON.parse(pkgJsonRaw)
 
-  rootPkgIdentifier = getPackageIdentifier(pkgJson, process.cwd(), [])
+  rootPkgIdentifier = getPackageIdentifier(pkgJson, workingDirectory, [])
 
-  let dependencyMap = await collectPackageNames()
-  processedBases.add(process.cwd())
+  let dependencyMap = await collectPackageNames(workingDirectory)
+  processedBases.add(workingDirectory)
   // now loop over all baseToPackageIdentifierMap entries and add them to the DAG
   // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
   for (const [base, _packageIdentifier] of baseToPackageIdentifierMap.entries()) {
