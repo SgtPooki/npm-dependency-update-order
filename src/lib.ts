@@ -4,14 +4,13 @@ import path from 'path'
 
 import { Package, packageWalker } from 'npm-package-walker'
 import batchingToposort from 'batching-toposort'
-
+import createGraph from 'ngraph.graph'
 import argv from './cli.js'
 
-type DependencyMap = Map<string, Set<string>>
+const ngraph = createGraph()
+
 const baseToPackageIdentifierMap: Map<string, string> = new Map()
 const processedBases: Set<string> = new Set()
-
-const VERBOSE = argv.verbose ?? 0
 
 const getPackageIdentifier = (pkg: Package, base: string, modulePath: string[]) => {
   const name = pkg.name
@@ -28,7 +27,7 @@ const getPackageIdentifier = (pkg: Package, base: string, modulePath: string[]) 
   if (argv.nameOnly === true) {
     packageIdentifier = name
   }
-  if (!baseToPackageIdentifierMap.has(name)) {
+  if (!baseToPackageIdentifierMap.has(base)) {
     baseToPackageIdentifierMap.set(base, packageIdentifier)
   }
 
@@ -65,6 +64,17 @@ const walkFn = (dependencyMap: DependencyMap) => async (pkg: Package, base: stri
       dependents.add(dependentId)
     }
 
+    dependents.forEach((dependentId) => {
+      ngraph.addLink(dependentId, packageIdentifier, {
+        pkg: {
+          name: pkg.name,
+          version: pkg.version
+        },
+        base,
+        modulePath
+      })
+    })
+
     dependencyMap.set(packageIdentifier, dependents)
 
     // const response = await fetch(`https://registry.npmjs.org/${pkg.name}`);
@@ -77,7 +87,7 @@ const walkFn = (dependencyMap: DependencyMap) => async (pkg: Package, base: stri
 }
 
 async function collectPackageNames (workingDirectory = process.cwd(), dependencyMap: DependencyMap = new Map()) {
-  if (VERBOSE >= 2) {
+  if (argv.verbose >= 2) {
     console.log(`Processing working directory '${workingDirectory}'...`)
   }
 
@@ -96,7 +106,7 @@ async function collectPackageNames (workingDirectory = process.cwd(), dependency
 
 // Map :: { [string]: string[] }
 // DAG :: { DependencyId : [DependentId] }
-const converMapToDAG = (map: DependencyMap) => {
+const converMapToDAG = (map: DependencyMap): Record<string, string[]> => {
   const DAG: Record<string, string[]> = {}
   const obj = Object.fromEntries(map)
   Object.keys(obj).forEach((key) => {
@@ -143,6 +153,7 @@ export default async (workingDirectory = process.cwd()) => {
 
   let dependencyMap = await collectPackageNames(workingDirectory)
   processedBases.add(workingDirectory)
+
   // now loop over all baseToPackageIdentifierMap entries and add them to the DAG
   // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
   for (const [base, _packageIdentifier] of baseToPackageIdentifierMap.entries()) {
@@ -150,24 +161,28 @@ export default async (workingDirectory = process.cwd()) => {
       dependencyMap = await collectPackageNames(base, dependencyMap)
       processedBases.add(base)
     } else {
-      if (VERBOSE >= 2) {
+      if (argv.verbose >= 2) {
         console.log(`Skipping already processed directory '${base}'`)
       }
     }
   }
 
   const dependencyObj = converMapToDAG(dependencyMap)
-  try {
-    void fs.promises.writeFile('dependencies.json', JSON.stringify(dependencyObj, null, 2))
-  } catch (err) {
-    console.error(err)
+  if (argv.write === true) {
+    try {
+      void fs.promises.writeFile('dependencies.json', JSON.stringify(dependencyObj, null, 2))
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   const dependencyUpdateOrder = batchingToposort(dependencyObj)
-  try {
-    void fs.promises.writeFile('dependencyUpdateOrder.json', JSON.stringify(dependencyUpdateOrder, null, 2))
-  } catch (err) {
-    console.error(err)
+  if (argv.write === true) {
+    try {
+      void fs.promises.writeFile('dependencyUpdateOrder.json', JSON.stringify(dependencyUpdateOrder, null, 2))
+    } catch (err) {
+      console.error(err)
+    }
   }
   const dependencyUpdateOrder2: string[][] = []
   const npmInstallCommands: string[] = []
@@ -189,10 +204,10 @@ export default async (workingDirectory = process.cwd()) => {
         newPkgList.push(pkg)
       }
     })
-    if (devDeps.length > 0) {
+    if (devDeps.length > 0 && argv.displayInstallCommands === true) {
       npmInstallCommands.push(`npm install -D ${devDeps.map((pkg) => getPackageNameFromIdentifier(pkg) + '@latest').join(' ')}`)
     }
-    if (deps.length > 0) {
+    if (deps.length > 0 && argv.displayInstallCommands === true) {
       npmInstallCommands.push(`npm install -S ${deps.map((pkg) => getPackageNameFromIdentifier(pkg) + '@latest').join(' ')}`)
     }
     if (newPkgList.length > 0) {
@@ -200,10 +215,68 @@ export default async (workingDirectory = process.cwd()) => {
     }
   })
 
-  if (VERBOSE >= 1) {
-    console.log('Dependency update order should be: ', dependencyUpdateOrder2)
-  }
   npmInstallCommands.forEach((cmd) => {
     console.log(cmd)
   })
+
+  displaySummary(dependencyUpdateOrder2)
 }
+
+const displaySummary = (dependencyUpdateOrder: string[][]) => {
+  console.log(`Total number of direct dependencies: ${dependencyUpdateOrder.flat().length}`)
+  // if (argv.verbose >= 1) {
+  console.log('Dependency update order should be: ')
+  dependencyUpdateOrder.forEach((pkgList, i) => {
+    console.log(`\tStep ${i + 1}: ${pkgList.join(', ')}`)
+  })
+  // }
+  argv.targets.forEach((target: string) => {
+    let targetBlockingDepsCount = 0
+    // const i = 0
+    for (const depList of dependencyUpdateOrder) {
+      // console.log('depList: ', depList)
+      // let depList = dependencyUpdateOrder[i]
+      // while (!depList.includes(target)) {
+      if (!depList.includes(target)) {
+        targetBlockingDepsCount += depList.length
+      } else {
+        break
+      }
+      // depList = dependencyUpdateOrder[i]
+    }
+    console.log(`Target '${target}' is blocked by ${targetBlockingDepsCount} dependencies`)
+  })
+}
+
+// const getPaths = () => {
+//   ngraph.forEachNode((node) => {
+//     const paths = getNodePaths(node)
+//     if (paths.length > 0) {
+//       console.log(
+//       `Node '${node.id}' has paths: \n\t${paths.join('\n\t')}`
+//       )
+//     } else {
+//       console.log(
+//       `Node '${node.id}' has no shared dependencies`
+//       )
+//     }
+//   })
+// }
+// const getNodePaths = (node: Node<any>, path?: string): string[] => {
+//   const paths: string[] = []
+//   if (path != null) {
+//     paths.push(path)
+//   }
+//   node.links?.forEach((link) => {
+//     if (link.fromId === node.id) {
+//       const nodePaths = getNodePaths(ngraph.getNode(link.toId) as Node<any>, `${link.id}`)
+//       // console.log('nodePaths: ', nodePaths)
+//       paths.push(...nodePaths)
+//       // console.log('nextPath: ', nextPath)
+//       // console.log('node: ', node)
+//       // console.log('link: ', link)
+//     }
+//   })
+//   return paths
+//   // console.log(node.id, node.data);
+// }
