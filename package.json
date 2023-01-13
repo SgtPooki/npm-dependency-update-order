@@ -39,7 +39,7 @@
   "devDependencies": {
     "@types/depcheck": "^0.9.1",
     "@types/node": "^18.7.14",
-    "aegir": "^37.5.3",
+    "aegir": "^38.1.0",
     "ngraph.graph": "^20.0.0",
     "typescript": "^4.8.2"
   },
